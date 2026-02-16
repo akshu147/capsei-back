@@ -6,36 +6,46 @@ import { pool } from "./src/config/db.js";
 import { allroutes } from "./src/app.js";
 
 const app = express();
-app.use(express.json());
-// 🔥 VERY IMPORTANT (for Render / Railway / production)
+
+// 🔥 Render / Production
 app.set("trust proxy", 1);
-// ✅ CORS
+
+// ✅ Allowed Origins
 const allowedOrigins = [
   "http://localhost:3000",
   "https://capsei-front-bdwr.vercel.app"
 ];
-app.use(cors({
+
+// ✅ CORS CONFIG (Store in variable)
+const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
-      callback(null, true);
+      return callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS: " + origin));
+      return callback(new Error("Not allowed by CORS: " + origin));
     }
   },
-  credentials: true
-}));
-// VERY IMPORTANT 👇
-app.options("*", cors());
-// ✅ Session (Production Safe)
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+// 👇 USE SAME OPTIONS EVERYWHERE
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+app.use(express.json());
+
+// ✅ Session
 app.use(session({
-  secret: process.env.SESSION_SECRET || "secret_key",
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true,          // HTTPS required
-    sameSite: "none"       // cross-site cookie allow
+    secure: true,
+    sameSite: "none"
   }
 }));
 
@@ -47,16 +57,11 @@ app.use("/api", allroutes);
 
 // ✅ Health check
 app.get("/home", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
-    res.json({ success: true, time: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const result = await pool.query("SELECT NOW()");
+  res.json({ success: true, time: result.rows[0] });
 });
 
-// ✅ Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on ${PORT}`);
 });
