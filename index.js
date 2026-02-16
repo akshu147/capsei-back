@@ -6,32 +6,28 @@ import { pool } from "./src/config/db.js";
 import { allroutes } from "./src/app.js";
 
 const app = express();
-
+app.use(express.json());
 // 🔥 VERY IMPORTANT (for Render / Railway / production)
 app.set("trust proxy", 1);
-
 // ✅ CORS
 const allowedOrigins = [
   "http://localhost:3000",
   "https://capsei-front-bdwr.vercel.app"
 ];
-
 app.use(cors({
   origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps / Postman)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      callback(new Error("Not allowed by CORS: " + origin));
     }
   },
   credentials: true
 }));
-// f
-app.use(express.json());
-
+// VERY IMPORTANT 👇
+app.options("*", cors());
 // ✅ Session (Production Safe)
 app.use(session({
   secret: process.env.SESSION_SECRET || "secret_key",
