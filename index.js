@@ -10,30 +10,10 @@ const app = express();
 // 🔥 Render / Production
 app.set("trust proxy", 1);
 
-// ✅ Allowed Origins
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://capsei-front.vercel.app"
-];
-
-// ✅ CORS CONFIG (Store in variable)
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error("Not allowed by CORS: " + origin));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-};
-
-// 👇 USE SAME OPTIONS EVERYWHERE
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: "https://capsei-front.vercel.app",
+  credentials: true
+}));
 app.options("*", cors(corsOptions));
 
 app.use(express.json());
