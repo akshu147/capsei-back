@@ -12,7 +12,7 @@ app.set("trust proxy", 1);
 
 // ✅ Simple & Clean CORS
 app.use(cors({
-  origin: "https://capsei-front.vercel.app",
+  origin: true,
   credentials: true
 }));
 
