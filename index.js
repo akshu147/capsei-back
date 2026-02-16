@@ -7,25 +7,25 @@ import { allroutes } from "./src/app.js";
 
 const app = express();
 
-// 🔥 Render / Production
+// 🔥 Required for Render
 app.set("trust proxy", 1);
 
+// ✅ Simple & Clean CORS
 app.use(cors({
   origin: "https://capsei-front.vercel.app",
   credentials: true
 }));
-app.options("*", cors(corsOptions));
 
 app.use(express.json());
 
 // ✅ Session
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || "secretkey",
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true,
-    sameSite: "none"
+    secure: true,        // Render uses HTTPS
+    sameSite: "none"     // Required for cross-domain cookies
   }
 }));
 
@@ -37,8 +37,12 @@ app.use("/api", allroutes);
 
 // ✅ Health check
 app.get("/home", async (req, res) => {
-  const result = await pool.query("SELECT NOW()");
-  res.json({ success: true, time: result.rows[0] });
+  try {
+    const result = await pool.query("SELECT NOW()");
+    res.json({ success: true, time: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 4000;
