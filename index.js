@@ -13,7 +13,7 @@ app.set("trust proxy", 1);
 // ✅ Allowed Origins
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://capsei-front.vercel.app/"
+  "https://capsei-front.vercel.app"
 ];
 
 // ✅ CORS CONFIG (Store in variable)
