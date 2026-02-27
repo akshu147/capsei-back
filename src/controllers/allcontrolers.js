@@ -1,6 +1,25 @@
-import { userregister } from './auth.controller'
-import { userlogin } from './auth.controller'
-import { googleAuthController } from './auth.controller'
-import { calculateprice } from './ride.controller'
+import {
+  userregister,
+  userlogin,
+  googleAuthController
+} from './auth.controller.js'
 
-export { userregister, userlogin, googleAuthController, calculateprice}
+import {
+  calculateprice,
+  bookRideController
+} from './ride.controller.js'
+
+import {
+  driverRegisterController, sendotpfordriverregister
+} from './driverControler.js'
+
+export {
+  userregister,
+  userlogin,
+  googleAuthController,
+  calculateprice,
+  bookRideController,
+  driverRegisterController,
+  sendotpfordriverregister
+  
+}

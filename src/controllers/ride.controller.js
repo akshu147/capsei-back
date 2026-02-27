@@ -103,10 +103,10 @@ const calculateprice = async (req, res) => {
     const fareList = vehicles.map(vehicle => {
       const baseFare = vehicle.base
       const distanceFare = distanceKm * vehicle.perKm
-      const timeFare = durationMin * vehicle.perMin
+      // const timeFare = durationMin * vehicle.perMin
       const platformFee = 3
 
-      const total = baseFare + distanceFare + timeFare + platformFee
+      const total = baseFare + distanceFare + platformFee
 
       return {
         vehicleType: vehicle.type,
@@ -121,6 +121,17 @@ const calculateprice = async (req, res) => {
     return res.status(200).json({
       distance_km: Number(distanceKm.toFixed(2)),
       duration_min: Number(durationMin.toFixed(0)),
+      pickup: {
+        placeId: pick_placeId,
+        lat: pickup.lat,
+        lng: pickup.lng
+      },
+
+      dropoff: {
+        placeId: drop_PlaceId,
+        lat: dropoff.lat,
+        lng: dropoff.lng
+      },
       vehicles: fareList
     })
   } catch (err) {
@@ -132,59 +143,119 @@ const calculateprice = async (req, res) => {
   }
 }
 
+
 const bookRideController = async (req, res) => {
   try {
-    const userId = req.user?.id
-    const { pickup, dropoff, serviceType, vehicleType, fare, scheduledAt } =
-      req.body
+    const userId = req.user.id; // 🔥 auth middleware se
+    console.log("User ID:", userId);
+    console.log("Booking request:", req.body);
 
-    // 1️⃣ Auth check
-    if (!userId) {
-      return res.status(401).json({
+    const {
+      pickupPlaceId,
+      dropoffPlaceId,
+      pickupLat,
+      pickupLng,
+      dropoffLat,
+      dropoffLng,
+      serviceType,
+      vehicleType,
+      scheduleType,
+      scheduledTime,
+      fare,
+      durationMin,
+      distanceKm
+    } = req.body;
+
+    // 1️⃣ Find nearest available driver for this vehicle type
+    const driverQuery = `
+      SELECT id, full_name, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
+      FROM drivers
+      WHERE is_online = TRUE
+        AND is_available = TRUE
+        AND vehicle_type = $3
+      ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+      LIMIT 1;
+    `;
+    const driverResult = await pool.query(driverQuery, [pickupLng, pickupLat, vehicleType]);
+    const nearestDriver = driverResult.rows[0];
+
+    if (!nearestDriver) {
+      return res.status(404).json({
         success: false,
-        message: 'Unauthorized'
-      })
+        message: "No available driver nearby"
+      });
     }
+    // 2️⃣ Insert booking into database
+    const query = `
+      INSERT INTO bookings (
+        user_id,
+        pickup_place_id,
+        pickup_location,
+        dropoff_place_id,
+        dropoff_location,
+        service_type,
+        vehicle_type,
+        schedule_type,
+        scheduled_time,
+        distance_km,
+        duration_min,
+        base_fare,
+        distance_fare,
+        platform_fee,
+        total_fare,
+        driver_id
+      )
+      VALUES (
+        $1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,
+        $5, ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
+        $8, $9, $10, $11,
+        $12, $13, $14, $15, $16, $17, $18
+      )
+      RETURNING *;
+    `;
 
-    // 2️⃣ Validation
-    if (!pickup || !dropoff || !serviceType || !vehicleType || !fare) {
-      return res.status(400).json({
-        success: false,
-        message: 'All required fields are mandatory'
-      })
-    }
+    const values = [
+      userId,
+      pickupPlaceId,
+      pickupLng,
+      pickupLat,
+      dropoffPlaceId,
+      dropoffLng,
+      dropoffLat,
+      serviceType,
+      vehicleType,
+      scheduleType,
+      scheduleType === "later" ? scheduledTime : null,
+      fare.baseFare,
+      fare.distanceFare,
+      fare.platformFee,
+      fare.total,
+      distanceKm,
+      durationMin,
+      nearestDriver.id
+    ];
 
-    // 3️⃣ Insert ride
-    const result = await pool.query(
-      `INSERT INTO rides 
-      (user_id, pickup, dropoff, service_type, vehicle_type, fare, scheduled_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-      RETURNING *`,
-      [
-        userId,
-        pickup,
-        dropoff,
-        serviceType,
-        vehicleType,
-        fare,
-        scheduledAt || null
-      ]
-    )
+    const result = await pool.query(query, values);
 
-    // 4️⃣ Success
+    // 3️⃣ Mark driver as busy
+    await pool.query(`UPDATE drivers SET is_available = FALSE WHERE id = $1`, [nearestDriver.id]);
+
+    // ✅ Respond back with booking + driver info
     return res.status(201).json({
       success: true,
-      message: 'Ride booked successfully',
-      data: result.rows[0]
-    })
-  } catch (err) {
-    console.error('Book Ride Error:', err)
+      message: "Ride booked successfully",
+      booking: result.rows[0],
+      driver: nearestDriver
+    });
+    console.log(nearestDriver, "bhsiya")
 
+  } catch (err) {
+    console.error("Book Ride Error:", err);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error'
-    })
+      message: "Internal server error"
+    });
   }
-}
-
+};
 export { bookRideController, calculateprice }
+
