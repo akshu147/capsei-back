@@ -82,7 +82,7 @@ const calculateprice = async (req, res) => {
     // 3️⃣ Vehicle Mapping
     const categoryVehicles = {
       bike: [
-        { type: 'standard_bike', base: 30, perKm: 8, perMin: 1 },
+        { type: 'bike', base: 30, perKm: 8, perMin: 1 },
         { type: 'premium_bike', base: 50, perKm: 10, perMin: 1.5 }
       ],
       car: [
@@ -143,12 +143,11 @@ const calculateprice = async (req, res) => {
   }
 }
 
-
 const bookRideController = async (req, res) => {
   try {
-    const userId = req.user.id; // 🔥 auth middleware se
-    console.log("User ID:", userId);
-    console.log("Booking request:", req.body);
+    const userId = req.user.id // 🔥 auth middleware se
+    console.log('User ID:', userId)
+    console.log('Booking request:', req.body)
 
     const {
       pickupPlaceId,
@@ -164,26 +163,45 @@ const bookRideController = async (req, res) => {
       fare,
       durationMin,
       distanceKm
-    } = req.body;
+    } = req.body
 
     // 1️⃣ Find nearest available driver for this vehicle type
     const driverQuery = `
-      SELECT id, full_name, ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
-      FROM drivers
-      WHERE is_online = TRUE
-        AND is_available = TRUE
-        AND vehicle_type = $3
-      ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-      LIMIT 1;
-    `;
-    const driverResult = await pool.query(driverQuery, [pickupLng, pickupLat, vehicleType]);
-    const nearestDriver = driverResult.rows[0];
+  SELECT 
+    id, 
+    full_name, 
+    ST_X(location::geometry) AS lng, 
+    ST_Y(location::geometry) AS lat,
+    ST_Distance(
+      location,
+      ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+    ) AS distance
+  FROM drivers
+  WHERE is_online = TRUE
+    AND is_available = TRUE
+    AND vehicle_type = $3
+    AND ST_DWithin(
+      location,
+      ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+      5000  -- 🔥 5 KM radius
+    )
+  ORDER BY location <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+  LIMIT 1;
+`
+
+    const driverResult = await pool.query(driverQuery, [
+      pickupLng,
+      pickupLat,
+      vehicleType
+    ])
+    const nearestDriver = driverResult.rows[0]
+    console.log(nearestDriver, 'gandmara')
 
     if (!nearestDriver) {
       return res.status(404).json({
         success: false,
-        message: "No available driver nearby"
-      });
+        message: 'No available driver nearby'
+      })
     }
     // 2️⃣ Insert booking into database
     const query = `
@@ -212,50 +230,50 @@ const bookRideController = async (req, res) => {
         $12, $13, $14, $15, $16, $17, $18
       )
       RETURNING *;
-    `;
+    `
 
     const values = [
-      userId,
-      pickupPlaceId,
-      pickupLng,
-      pickupLat,
-      dropoffPlaceId,
-      dropoffLng,
-      dropoffLat,
-      serviceType,
-      vehicleType,
-      scheduleType,
-      scheduleType === "later" ? scheduledTime : null,
-      fare.baseFare,
-      fare.distanceFare,
-      fare.platformFee,
-      fare.total,
-      distanceKm,
-      durationMin,
-      nearestDriver.id
-    ];
+      userId, // $1
+      pickupPlaceId, // $2
+      pickupLng, // $3
+      pickupLat, // $4
+      dropoffPlaceId, // $5
+      dropoffLng, // $6
+      dropoffLat, // $7
+      serviceType, // $8
+      vehicleType, // $9
+      scheduleType, // $10
+      scheduleType === 'later' ? scheduledTime : null, // $11
+      distanceKm, // $12
+      durationMin, // $13
+      fare.baseFare, // $14
+      fare.distanceFare, // $15
+      fare.platformFee, // $16
+      fare.total, // $17
+      nearestDriver.id // $18
+    ]
 
-    const result = await pool.query(query, values);
+    const result = await pool.query(query, values)
 
     // 3️⃣ Mark driver as busy
-    await pool.query(`UPDATE drivers SET is_available = FALSE WHERE id = $1`, [nearestDriver.id]);
+    await pool.query(`UPDATE drivers SET is_available = FALSE WHERE id = $1`, [
+      nearestDriver.id
+    ])
 
     // ✅ Respond back with booking + driver info
     return res.status(201).json({
       success: true,
-      message: "Ride booked successfully",
+      message: 'Ride booked successfully',
       booking: result.rows[0],
       driver: nearestDriver
-    });
-    console.log(nearestDriver, "bhsiya")
-
+    })
+    console.log(nearestDriver, 'bhsiya')
   } catch (err) {
-    console.error("Book Ride Error:", err);
+    console.error('Book Ride Error:', err.message)
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
-    });
+      message: 'Internal server error'
+    })
   }
-};
+}
 export { bookRideController, calculateprice }
-
