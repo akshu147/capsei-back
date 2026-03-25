@@ -80,18 +80,30 @@ const calculateprice = async (req, res) => {
 
     // 3️⃣ Pricing
     // 3️⃣ Vehicle Mapping
-    const categoryVehicles = {
-      bike: [
-        { type: 'bike', base: 30, perKm: 8, perMin: 1 },
-        { type: 'premium_bike', base: 50, perKm: 10, perMin: 1.5 }
-      ],
-      car: [
-        { type: 'citycar', base: 50, perKm: 12, perMin: 2 },
-        { type: 'sedan', base: 70, perKm: 15, perMin: 2.5 },
-        { type: 'suv', base: 100, perKm: 20, perMin: 3 },
-        { type: 'premium', base: 150, perKm: 25, perMin: 4 }
-      ]
-    }
+  const categoryVehicles = {
+  bike: [
+    { type: 'bike', base: 30, perKm: 8, perMin: 1 },
+    { type: 'premium_bike', base: 50, perKm: 10, perMin: 1.5 }
+  ],
+
+  car: [
+    { type: 'citycar', base: 50, perKm: 12, perMin: 2 },
+    { type: 'sedan', base: 70, perKm: 15, perMin: 2.5 },
+    { type: 'suv', base: 100, perKm: 20, perMin: 3 },
+    { type: 'premium', base: 150, perKm: 25, perMin: 4 }
+  ],
+
+  // ✅ NEW: AUTO CATEGORY
+  auto: [
+    { type: 'auto', base: 40, perKm: 10, perMin: 1.5 },
+    { type: 'e_auto', base: 35, perKm: 9, perMin: 1.2 }
+  ],
+
+  loading: [
+    { type: '3wheeler', base: 80, perKm: 18, perMin: 2.5 },
+    { type: '4wheeler', base: 120, perKm: 25, perMin: 3.5 }
+  ]
+}
 
     const vehicles = categoryVehicles[serviceType]
 
@@ -195,7 +207,7 @@ const bookRideController = async (req, res) => {
       vehicleType
     ])
     const nearestDriver = driverResult.rows[0]
-    console.log(nearestDriver, 'gandmara')
+    console.log(nearestDriver, 'driver nahi hai')
 
     if (!nearestDriver) {
       return res.status(404).json({

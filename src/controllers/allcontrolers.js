@@ -10,7 +10,7 @@ import {
 } from './ride.controller.js'
 
 import {
-  driverRegisterController, sendotpfordriverregister, verifyDriverOtp, driverRegister2ndstep, updateDriverStatus, updateDriverLocation, getDriverStatus
+  driverRegisterController, sendotpfordriverregister, verifyDriverOtp, driverRegister2ndstep, updateDriverStatus, updateDriverLocation, getDriverStatus, driverLoginController
 } from './driverControler.js'
 
 export {
@@ -25,6 +25,7 @@ export {
   driverRegister2ndstep,
   updateDriverStatus,
   updateDriverLocation,
-  getDriverStatus
+  getDriverStatus,
+  driverLoginController
   
 }

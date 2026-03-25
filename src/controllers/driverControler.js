@@ -243,6 +243,71 @@ const driverRegister2ndstep = async (req, res) => {
     })
   }
 }
+const driverLoginController = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // ❌ validation
+    if (!phone || !password) {
+      return res.status(400).json({
+        message: "Phone and password are required"
+      });
+    }
+
+    // 🔍 driver find karo
+    const result = await pool.query(
+      `SELECT * FROM drivers WHERE phone = $1`,
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Driver not found"
+      });
+    }
+
+    const driver = result.rows[0];
+
+    // 🔐 password check
+    const isMatch = await bcrypt.compare(password, driver.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
+    }
+
+    // 🎟️ JWT token generate
+    const token = jwt.sign(
+      {
+        id: driver.id,
+        role: "driver"
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // ✅ response
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      driver: {
+        id: driver.id,
+        name: driver.name,
+        phone: driver.phone,
+        vehicle_type: driver.vehicle_type,
+        is_online: driver.is_online
+      }
+    });
+
+  } catch (err) {
+    console.error("Driver Login Error:", err);
+    res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+};
+
 const getDriverStatus = async (req, res) => {
   try {
     const driverId = req.user.id;
@@ -368,5 +433,6 @@ export {
   driverRegister2ndstep,
   getDriverStatus,
   updateDriverStatus,
-  updateDriverLocation
+  updateDriverLocation,
+  driverLoginController
 }
