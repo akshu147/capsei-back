@@ -329,7 +329,7 @@ const getDriverStatus = async (req, res) => {
 const updateDriverStatus = async (req, res) => {
   try {
     const driverId = req.user.id; // 🔥 middleware se
-    console.log(driverId, "bosiay")
+
     const { is_online, lat, lng } = req.body;
 
     // ❌ validation
@@ -379,7 +379,6 @@ const updateDriverStatus = async (req, res) => {
 };
 const updateDriverLocation = async (req, res) => {
   try {
-    console.log("lund lund lund lund")
     const driverId = req.user.id
     const { lat, lng, accuracy } = req.body
     

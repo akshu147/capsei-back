@@ -25,15 +25,37 @@ const getLatLngFromPlaceId = async placeId => {
 // 🔹 Main Price Calculation
 const calculateprice = async (req, res) => {
   try {
-    const { pick_placeId, drop_PlaceId, serviceType } = req.body
-    if (!pick_placeId || !drop_PlaceId || !serviceType) {
+    const {
+      pick_placeId,
+      drop_PlaceId,
+      serviceType,
+      pickuplat,
+      pickuplng
+    } = req.body
+
+    // ✅ Validation
+    if (
+      (!pick_placeId && (!pickuplat || !pickuplng)) ||
+      (!drop_PlaceId) || !serviceType
+    ) {
       return res.status(400).json({ message: 'Missing required fields' })
     }
-    // 1️⃣ Get Coordinates
-    const pickup = await getLatLngFromPlaceId(pick_placeId)
+
+    // 1️⃣ Get Pickup Coordinates
+    let pickup = {}
+    if (pick_placeId) {
+      pickup = await getLatLngFromPlaceId(pick_placeId)
+    } else {
+      pickup = {
+        lat: Number(pickuplat),
+        lng: Number(pickuplng)
+      }
+    }
+
+    // 2️⃣ Get Drop Coordinates
     const dropoff = await getLatLngFromPlaceId(drop_PlaceId)
 
-    // 2️⃣ Call Route Matrix API
+    // 3️⃣ Distance Matrix API
     const matrixResponse = await axios.post(
       'https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix',
       {
@@ -78,32 +100,27 @@ const calculateprice = async (req, res) => {
     const distanceKm = routeData.distanceMeters / 1000
     const durationMin = parseInt(routeData.duration.replace('s', '')) / 60
 
-    // 3️⃣ Pricing
-    // 3️⃣ Vehicle Mapping
-  const categoryVehicles = {
-  bike: [
-    { type: 'bike', base: 30, perKm: 8, perMin: 1 },
-    { type: 'premium_bike', base: 50, perKm: 10, perMin: 1.5 }
-  ],
-
-  car: [
-    { type: 'citycar', base: 50, perKm: 12, perMin: 2 },
-    { type: 'sedan', base: 70, perKm: 15, perMin: 2.5 },
-    { type: 'suv', base: 100, perKm: 20, perMin: 3 },
-    { type: 'premium', base: 150, perKm: 25, perMin: 4 }
-  ],
-
-  // ✅ NEW: AUTO CATEGORY
-  auto: [
-    { type: 'auto', base: 40, perKm: 10, perMin: 1.5 },
-    { type: 'e_auto', base: 35, perKm: 9, perMin: 1.2 }
-  ],
-
-  loading: [
-    { type: '3wheeler', base: 80, perKm: 18, perMin: 2.5 },
-    { type: '4wheeler', base: 120, perKm: 25, perMin: 3.5 }
-  ]
-}
+    // 4️⃣ Vehicle Pricing
+    const categoryVehicles = {
+      bike: [
+        { type: 'bike', base: 30, perKm: 8 },
+        { type: 'premium_bike', base: 50, perKm: 10 }
+      ],
+      car: [
+        { type: 'citycar', base: 50, perKm: 12 },
+        { type: 'sedan', base: 70, perKm: 15 },
+        { type: 'suv', base: 100, perKm: 20 },
+        { type: 'premium', base: 150, perKm: 25 }
+      ],
+      auto: [
+        { type: 'auto', base: 40, perKm: 10 },
+        { type: 'e_auto', base: 35, perKm: 9 }
+      ],
+      loading: [
+        { type: '3wheeler', base: 80, perKm: 18 },
+        { type: '4wheeler', base: 120, perKm: 25 }
+      ]
+    }
 
     const vehicles = categoryVehicles[serviceType]
 
@@ -111,50 +128,47 @@ const calculateprice = async (req, res) => {
       return res.status(400).json({ message: 'Invalid category' })
     }
 
-    // 4️⃣ Calculate fare for each vehicle
+    // 5️⃣ Fare Calculation
     const fareList = vehicles.map(vehicle => {
       const baseFare = vehicle.base
       const distanceFare = distanceKm * vehicle.perKm
-      // const timeFare = durationMin * vehicle.perMin
       const platformFee = 3
 
       const total = baseFare + distanceFare + platformFee
 
       return {
         vehicleType: vehicle.type,
-        baseFare: Number(baseFare.toFixed(0)),
-        distanceFare: Number(distanceFare.toFixed(0)),
-        platformFee: platformFee,
-        total: Number(total.toFixed(0))
+        baseFare: Math.round(baseFare),
+        distanceFare: Math.round(distanceFare),
+        platformFee,
+        total: Math.round(total)
       }
     })
 
-    // 5️⃣ Final Response
+    // 6️⃣ Response
     return res.status(200).json({
       distance_km: Number(distanceKm.toFixed(2)),
-      duration_min: Number(durationMin.toFixed(0)),
+      duration_min: Math.round(durationMin),
+
       pickup: {
-        placeId: pick_placeId,
+        placeId: pick_placeId || null,
         lat: pickup.lat,
         lng: pickup.lng
       },
 
       dropoff: {
-        placeId: drop_PlaceId,
+        placeId: drop_PlaceId || null,
         lat: dropoff.lat,
         lng: dropoff.lng
       },
+
       vehicles: fareList
     })
   } catch (err) {
-    console.log('ERROR STATUS:', err.response?.status)
-    console.log('ERROR DATA:', err.response?.data)
-    console.log('FULL ERROR:', err.message)
-
+    console.log('ERROR:', err.message)
     return res.status(500).json({ message: 'Server error' })
   }
 }
-
 const bookRideController = async (req, res) => {
   try {
     const userId = req.user.id // 🔥 auth middleware se
@@ -279,7 +293,7 @@ const bookRideController = async (req, res) => {
       booking: result.rows[0],
       driver: nearestDriver
     })
-    console.log(nearestDriver, 'bhsiya')
+    console.log(nearestDriver, 'asdfasdfasdf')
   } catch (err) {
     console.error('Book Ride Error:', err.message)
     return res.status(500).json({

@@ -5,12 +5,16 @@ import passport from "./src/config/passport.js";
 import { pool } from "./src/config/db.js";
 import { allroutes } from "./src/app.js";
 
+// 👇 NEW
+import http from "http";
+import { Server } from "socket.io";
+
 const app = express();
 
 // 🔥 Required for Render
 app.set("trust proxy", 1);
 
-// ✅ Simple & Clean CORS
+// ✅ CORS (IMPORTANT for socket too)
 app.use(cors({
   origin: true,
   credentials: true
@@ -24,8 +28,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: true,        // Render uses HTTPS
-    sameSite: "none"     // Required for cross-domain cookies
+    secure: true,
+    sameSite: "none"
   }
 }));
 
@@ -45,7 +49,47 @@ app.get("/home", async (req, res) => {
   }
 });
 
+
+// ================= SOCKET.IO START =================
+
+// ❗ Express ko direct listen mat kar
+const server = http.createServer(app);
+
+// 👇 socket server
+const io = new Server(server, {
+  cors: {
+    origin: "*", // production me apna domain daalna
+    credentials: true
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log("🔥 Socket connected:", socket.id);
+
+  // 👤 User joins ride
+  socket.on("join-ride", (rideId) => {
+    socket.join(rideId);
+    console.log(`User joined ride: ${rideId}`);
+  });
+
+  // 🚗 Driver sends location
+  socket.on("driver-location", (data) => {
+    const { rideId, lat, lng } = data;
+
+    // 👇 sirf us ride ke user ko bhejo
+    io.to(rideId).emit("driver-location-update", { lat, lng });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("❌ Socket disconnected:", socket.id);
+  });
+});
+
+// ================= SOCKET.IO END =================
+
+
+// ❗ IMPORTANT: app.listen ki jagah server.listen
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Server running on ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on ${PORT}`);
 });

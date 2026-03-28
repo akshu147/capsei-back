@@ -48,8 +48,6 @@ const userregister = async (req, res) => {
   }
 }
 
-
-
 const userlogin = async (req, res) => {
   try {
     const { email, password } = req.body
