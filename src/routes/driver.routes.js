@@ -32,7 +32,7 @@ driverRoutes.post(
 driverRoutes.post("/driver-login", authMiddleware, driverLoginController)
 driverRoutes.get('/get-driver-status', authMiddleware, getDriverStatus)
 driverRoutes.post('/update-driver-status', authMiddleware, updateDriverStatus)
-driverRoutes.post("/update-driver-location", updateDriverLocation)
+driverRoutes.post("/update-driver-location", authMiddleware,updateDriverLocation)
 
 
 export { driverRoutes }

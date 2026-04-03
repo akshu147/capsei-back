@@ -1,95 +1,124 @@
-import express from "express";
-import cors from "cors";
-import session from "express-session";
-import passport from "./src/config/passport.js";
-import { pool } from "./src/config/db.js";
-import { allroutes } from "./src/app.js";
+import express from 'express'
+import cors from 'cors'
+import session from 'express-session'
+import passport from './src/config/passport.js'
+import { pool } from './src/config/db.js'
+import { allroutes } from './src/app.js'
 
-// 👇 NEW
-import http from "http";
-import { Server } from "socket.io";
+import http from 'http'
+import { Server } from 'socket.io'
 
-const app = express();
+const app = express()
 
-// 🔥 Required for Render
-app.set("trust proxy", 1);
+// 🔥 Required for Render / proxies
+app.set('trust proxy', 1)
 
-// ✅ CORS (IMPORTANT for socket too)
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+// ================= CORS =================
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
 
-app.use(express.json());
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true
+  })
+)
 
-// ✅ Session
-app.use(session({
-  secret: process.env.SESSION_SECRET || "secretkey",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: true,
-    sameSite: "none"
-  }
-}));
+app.use(express.json())
 
-app.use(passport.initialize());
-app.use(passport.session());
+// ================= SESSION =================
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'secretkey',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: true,
+      sameSite: 'none'
+    }
+  })
+)
 
-// ✅ Routes
-app.use("/api", allroutes);
+app.use(passport.initialize())
+app.use(passport.session())
 
-// ✅ Health check
-app.get("/home", async (req, res) => {
+// ================= ROUTES =================
+app.use('/api', allroutes)
+
+// ================= HEALTH CHECK =================
+app.get('/home', async (req, res) => {
   try {
-    const result = await pool.query("SELECT NOW()");
-    res.json({ success: true, time: result.rows[0] });
+    const result = await pool.query('SELECT NOW()')
+    res.json({ success: true, time: result.rows[0] })
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message })
   }
-});
+})
 
+// ================= SOCKET.IO =================
+const server = http.createServer(app)
 
-// ================= SOCKET.IO START =================
-
-// ❗ Express ko direct listen mat kar
-const server = http.createServer(app);
-
-// 👇 socket server
 const io = new Server(server, {
   cors: {
-    origin: "*", // production me apna domain daalna
+    origin: FRONTEND_URL,
     credentials: true
   }
-});
+})
 
-io.on("connection", (socket) => {
-  console.log("🔥 Socket connected:", socket.id);
+// 🔥 MEMORY STORE (IMPORTANT)
+const drivers = {}  // { driverId: { lat, lng } }
+const users = {}    // optional future use
 
-  // 👤 User joins ride
-  socket.on("join-ride", (rideId) => {
-    socket.join(rideId);
-    console.log(`User joined ride: ${rideId}`);
-  });
+// 🔥 socket logic
+io.on('connection', socket => {
+  console.log('🔥 Socket connected:', socket.id)
 
-  // 🚗 Driver sends location
-  socket.on("driver-location", (data) => {
-    const { rideId, lat, lng } = data;
+  // ================= GET ALL DRIVERS =================
+  socket.on('getDrivers', () => {
+    socket.emit('allDrivers', drivers)
+  })
 
-    // 👇 sirf us ride ke user ko bhejo
-    io.to(rideId).emit("driver-location-update", { lat, lng });
-  });
+  // ================= DRIVER LOCATION =================
+  socket.on('driverLocation', async data => {
+    try {
+      const { driverId, lat, lng } = data
 
-  socket.on("disconnect", () => {
-    console.log("❌ Socket disconnected:", socket.id);
-  });
-});
+      if (!driverId || !lat || !lng) {
+        console.log('❌ Invalid driverLocation data')
+        return
+      }
 
-// ================= SOCKET.IO END =================
+      // ✅ SAVE in memory
+      drivers[driverId] = { lat, lng }
 
+      // 🔥 (optional DB update)
+      // await pool.query(
+      //   "UPDATE drivers SET lat=$1, lng=$2 WHERE id=$3",
+      //   [lat, lng, driverId]
+      // )
 
-// ❗ IMPORTANT: app.listen ki jagah server.listen
-const PORT = process.env.PORT || 4000;
+      // ✅ SEND TO ALL CLIENTS
+      io.emit('driverLocationUpdate', {
+        driverId,
+        lat,
+        lng
+      })
+
+      console.log('📍 Location stored + sent:', driverId, lat, lng)
+
+    } catch (err) {
+      console.log('❌ Socket error:', err.message)
+    }
+  })
+
+  // ================= DISCONNECT =================
+  socket.on('disconnect', () => {
+    console.log('❌ Socket disconnected:', socket.id)
+  })
+})
+
+// ================= START SERVER =================
+const PORT = process.env.PORT || 4000
+
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on ${PORT}`);
-});
+  console.log(`🚀 Server running on ${PORT}`)
+})

@@ -103,8 +103,7 @@ const calculateprice = async (req, res) => {
     // 4️⃣ Vehicle Pricing
     const categoryVehicles = {
       bike: [
-        { type: 'bike', base: 30, perKm: 8 },
-        { type: 'premium_bike', base: 50, perKm: 10 }
+        { type: 'Bike', base: 20, perKm: 10 }
       ],
       car: [
         { type: 'citycar', base: 50, perKm: 12 },

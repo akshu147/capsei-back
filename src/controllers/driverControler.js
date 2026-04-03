@@ -195,6 +195,7 @@ const driverRegister2ndstep = async (req, res) => {
     console.log('USER ID:', req.user?.id)
     const driverId = req.user?.id
     const data = { ...req.body }
+    console.log(data)
     const files = req.files
     const documents = {
       license: files?.license?.[0]?.filename || null,
@@ -381,6 +382,7 @@ const updateDriverLocation = async (req, res) => {
   try {
     const driverId = req.user.id
     const { lat, lng, accuracy } = req.body
+    console.log(req.body, "bhosiya")
     
 
     // ❌ validation
@@ -399,22 +401,22 @@ const updateDriverLocation = async (req, res) => {
     }
 
     // ✅ update only location
-    const query = `
-      UPDATE drivers
-      SET 
-        location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-        last_updated = NOW()
-      WHERE id = $3
-      RETURNING id, is_online, location;
-    `
+    // const query = `
+    //   UPDATE drivers
+    //   SET 
+    //     location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+    //     last_updated = NOW()
+    //   WHERE id = $3
+    //   RETURNING id, is_online, location;
+    // `
 
-    const values = [lng, lat, driverId] // ⚠️ lng first
+    // const values = [lng, lat, driverId] // ⚠️ lng first
 
-    const result = await pool.query(query, values)
+    // const result = await pool.query(query, values)
 
     res.status(200).json({
-      message: "Location updated",
-      driver: result.rows[0]
+      message: "Location updated"
+      // driver: result.rows[0]
     })
 
   } catch (err) {
